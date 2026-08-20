@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #53A318;
+  --color-primary-dark: #438F10;
+  --color-primary-light: #EFF7E6;
+  --color-accent: #E31837;
+  --color-accent-hover: #C01430;
+  --color-text: #1A1A1A;
+  --color-muted: #636366;
+  --color-border: #E0E0E0;
+  --color-bg: #F5F5F5;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    background-color: #F5F5F5;
+    color: #1A1A1A;
+    font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-primary { color: var(--color-primary); }
+  .bg-primary { background-color: var(--color-primary); }
+  .hover\:bg-primary-dark:hover { background-color: var(--color-primary-dark); }
+  .bg-primary-light { background-color: var(--color-primary-light); }
+  .text-accent { color: var(--color-accent); }
+  .bg-accent { background-color: var(--color-accent); }
+  .hover\:bg-accent-hover:hover { background-color: var(--color-accent-hover); }
+  .border-primary { border-color: var(--color-primary); }
+  .ring-primary { --tw-ring-color: var(--color-primary); }
+  .focus\:ring-primary:focus { --tw-ring-color: var(--color-primary); }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Groupon-style nav dropdown */
+  .nav-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100;
+  }
+  .nav-item:hover .nav-dropdown {
+    display: block;
+  }
+}

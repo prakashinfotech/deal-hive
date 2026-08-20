@@ -1,0 +1,120 @@
+version: '3.9'
+
+services:
+  # ─── Databases ────────────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: dealhive_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dealhive
+      POSTGRES_USER: dealhive
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dealhive_dev_password}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U dealhive -d dealhive']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: dealhive_redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-dealhive_redis_password}
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--pass', '${REDIS_PASSWORD:-dealhive_redis_password}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Observability ────────────────────────────────────────────────────────────
+
+  seq:
+    image: datalust/seq:latest
+    container_name: dealhive_seq
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: 'Y'
+    ports:
+      - '5341:80'
+    volumes:
+      - seq_data:/data
+
+  # ─── Backend API ──────────────────────────────────────────────────────────────
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dealhive_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:5000
+      ConnectionStrings__DefaultConnection: >-
+        Host=postgres;Port=5432;Database=dealhive;Username=dealhive;Password=${POSTGRES_PASSWORD:-dealhive_dev_password}
+      ConnectionStrings__Redis: >-
+        redis:6379,password=${REDIS_PASSWORD:-dealhive_redis_password}
+      Jwt__Secret: ${JWT_SECRET:-super_secret_jwt_key_at_least_32_chars_long}
+      Jwt__Issuer: ${JWT_ISSUER:-dealhive}
+      Jwt__Audience: ${JWT_AUDIENCE:-dealhive-users}
+      Jwt__AccessTokenExpiryMinutes: '15'
+      Jwt__RefreshTokenExpiryDays: '30'
+      Stripe__SecretKey: ${STRIPE_SECRET_KEY}
+      Stripe__PublishableKey: ${STRIPE_PUBLISHABLE_KEY}
+      Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET}
+      SendGrid__ApiKey: ${SENDGRID_API_KEY}
+      SendGrid__FromEmail: ${SENDGRID_FROM_EMAIL:-noreply@dealhive.com}
+      SendGrid__FromName: DealHive
+      AzureStorage__ConnectionString: ${AZURE_STORAGE_CONNECTION_STRING}
+      AzureStorage__ContainerName: ${AZURE_STORAGE_CONTAINER:-dealhive-media}
+      Serilog__WriteTo__1__Args__serverUrl: http://seq:80
+      Frontend__BaseUrl: ${FRONTEND_URL:-http://localhost:3000}
+      AllowedOrigins__0: ${FRONTEND_URL:-http://localhost:3000}
+    ports:
+      - '5000:5000'
+    volumes:
+      - api_keys:/root/.aspnet/DataProtection-Keys
+
+  # ─── Frontend ─────────────────────────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000/api}
+        NEXT_PUBLIC_SIGNALR_URL: ${NEXT_PUBLIC_SIGNALR_URL:-http://localhost:5000}
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+    container_name: dealhive_frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+    ports:
+      - '3000:3000'
+
+volumes:
+  postgres_data:
+  redis_data:
+  seq_data:
+  api_keys:
+
+networks:
+  default:
+    name: dealhive_network
